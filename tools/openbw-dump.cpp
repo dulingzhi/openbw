@@ -46,6 +46,12 @@ const char* unit_category(const unit_t* u) {
   return "unit";
 }
 
+// 录像里的 UnitTag：w(crc+1) | (generation << 11)，见 bwgame.h:643-645 的
+// get_unit_id()。screp 的 -cmds 输出的 UnitTags 用的是同一个编号，对齐要靠它。
+inline int replay_tag(const unit_t* u) {
+  return ((u->index + 1) & 0x7ff) | ((u->unit_id_generation & 0x1f) << 11);
+}
+
 void write_unit(FILE* out, const unit_t* u) {
   // hp:             thingy_t::hp          (game_types.h:457)  fp8 -> /256
   // position:       thingy_t::position    (game_types.h:473)  像素 * 256
@@ -54,11 +60,11 @@ void write_unit(FILE* out, const unit_t* u) {
   // status_flags:   unit_t                (game_types.h:726)
   const int target_unit = u->order_target.unit ? u->order_target.unit->index : -1;
   std::fprintf(out,
-    "\"i\":%d,\"o\":%d,\"t\":%d,\"c\":\"%s\","
+    "\"i\":%d,\"tag\":%d,\"o\":%d,\"t\":%d,\"c\":\"%s\","
     "\"x\":%d,\"y\":%d,\"hp\":%d,\"sh\":%d,"
     "\"ord\":%d,\"ost\":%d,\"tgt\":%d,"
     "\"cd\":[%d,%d,%d],\"done\":%s,\"gath\":%s",
-    u->index, u->owner, static_cast<int>(u->unit_type->id), unit_category(u),
+    u->index, replay_tag(u), u->owner, static_cast<int>(u->unit_type->id), unit_category(u),
     u->position.x / 256, u->position.y / 256,
     u->hp.raw_value / 256, u->shield_points.raw_value / 256,
     static_cast<int>(u->order_type->id), u->order_state, target_unit,
@@ -87,10 +93,14 @@ void dump_replay(const a_string& data_path, const a_string& replay_path,
     std::fprintf(stderr, "openbw-dump: cannot open %s\n", out_path.c_str());
     return;
   }
+  // map_w/map_h are in tiles (bwgame.h:144-145); the training encoder needs them to
+  // normalize unit positions.
   std::fprintf(out,
-    "{\"schema\":\"openbw-dump-v1\",\"map\":\"%s\",\"frames\":%d,\"game_type\":%d}\n",
+    "{\"schema\":\"openbw-dump-v1\",\"map\":\"%s\",\"frames\":%d,\"game_type\":%d,"
+    "\"map_w\":%d,\"map_h\":%d}\n",
     replay.replay_st.map_name.data(), replay.replay_st.end_frame,
-    replay.replay_st.game_type);
+    replay.replay_st.game_type, static_cast<int>(st.game->map_width),
+    static_cast<int>(st.game->map_height));
 
   const int limit = opts.max_frames > 0 ? opts.max_frames : replay.replay_st.end_frame;
   int emitted = 0;
