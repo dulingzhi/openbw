@@ -6,6 +6,10 @@
 #include <limits>
 #include <array>
 #include <type_traits>
+// MSVC 14.4x no longer pulls <stdexcept> in transitively; OpenBW uses
+// std::runtime_error further down in this header.
+#include <stdexcept>
+#include <string>
 
 #include "containers.h"
 #include "strf.h"

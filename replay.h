@@ -39,6 +39,15 @@ struct replay_file_reader {
 	}
 
 	void get_bytes(uint8_t* output, size_t output_size) {
+		if (output_size == 0) {
+			// A zero-length block has no data layer at all in 1.16.1 replays: the
+			// preceding r.get<uint32_t>() already consumed the size field, and the
+			// next bytes belong to the following block (usually the map size). The
+			// generic path below would read that next layer, compute
+			// segment_output_size == 0, see segment_input_size > 0 and error out with
+			// "output buffer too small". Nothing to read, so return immediately.
+			return;
+		}
 		uint32_t crc32_sum = r.template get<uint32_t>();
 		size_t segments = r.template get<uint32_t>();
 		

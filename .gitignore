@@ -1,0 +1,5 @@
+# 本地构建产物（MSVC 直接编译 tools/ 下的探针与导出工具时生成）。
+build-dump/
+*.pdb
+*.obj
+*.exe
